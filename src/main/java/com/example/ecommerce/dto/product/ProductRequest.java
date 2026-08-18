@@ -31,6 +31,8 @@ public record ProductRequest(
         Integer stockQuantity,
 
         @NotNull(message = "Category is required")
-        UUID categoryId
+        UUID categoryId,
+
+        boolean active
 ) {
 }

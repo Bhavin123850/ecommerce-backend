@@ -101,7 +101,7 @@ public class ProductService {
 
     public ProductResponse updateProduct(
             UUID id,
-            ProductRequest request) {
+            ProductRequest request) throws RuntimeException{
 
         Product product = getProductEntity(id);
 
@@ -119,6 +119,8 @@ public class ProductService {
         product.setStockQuantity(
                 request.stockQuantity()
         );
+        product.setSku(request.sku());
+        product.setActive(request.active());
         product.setCategory(category);
 
         return mapToResponse(product);

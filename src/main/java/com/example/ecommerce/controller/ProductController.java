@@ -91,13 +91,20 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductResponse> updateProduct(
+    public ResponseEntity<?> updateProduct(
             @PathVariable UUID id,
             @Valid @RequestBody ProductRequest request) {
-
-        return ResponseEntity.ok(
-                productService.updateProduct(id, request)
-        );
+        try {
+            return ResponseEntity.ok(
+                    productService.updateProduct(id, request)
+            );
+        }
+        catch(RuntimeException e)
+        {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(e.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")
