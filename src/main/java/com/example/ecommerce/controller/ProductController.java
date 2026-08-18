@@ -75,12 +75,19 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductResponse> getProduct(
+    public ResponseEntity<?> getProduct(
             @PathVariable UUID id) {
-
+    try {
         return ResponseEntity.ok(
                 productService.getProduct(id)
         );
+    }
+    catch(RuntimeException e)
+    {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(e.getMessage());
+    }
     }
 
     @PutMapping("/{id}")

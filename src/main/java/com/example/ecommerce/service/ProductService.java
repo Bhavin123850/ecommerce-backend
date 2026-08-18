@@ -64,7 +64,7 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public ProductResponse getProduct(UUID id) {
+    public ProductResponse getProduct(UUID id) throws RuntimeException{
 
         return mapToResponse(
                 getProductEntity(id)
