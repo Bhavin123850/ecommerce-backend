@@ -141,7 +141,7 @@ public class ProductService {
 
     public ProductResponse updateStock(
             UUID id,
-            Integer quantity) {
+            Integer quantity) throws Exception{
 
         if (quantity < 0) {
             throw new IllegalArgumentException(

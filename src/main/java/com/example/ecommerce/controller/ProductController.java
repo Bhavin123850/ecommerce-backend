@@ -124,12 +124,26 @@ public class ProductController {
     }
 
     @PatchMapping("/{id}/stock")
-    public ResponseEntity<ProductResponse> updateStock(
+    public ResponseEntity<?> updateStock(
             @PathVariable UUID id,
             @RequestParam Integer quantity) {
+        try {
+            return ResponseEntity.ok(
+                    productService.updateStock(id, quantity)
+            );
+        }
+        catch(IllegalArgumentException e)
+        {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(e.getMessage());
 
-        return ResponseEntity.ok(
-                productService.updateStock(id, quantity)
-        );
+        }
+        catch(Exception e)
+        {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(e.getMessage());
+        }
     }
 }
