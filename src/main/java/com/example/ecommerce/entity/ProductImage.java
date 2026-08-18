@@ -40,6 +40,9 @@ public class ProductImage {
     @Column(name = "image_url", nullable = false, length = 1000)
     private String imageUrl;
 
+    @Column(name = "is_primary", nullable = false)
+    private boolean primary;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
