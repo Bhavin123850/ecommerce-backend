@@ -7,15 +7,20 @@ import com.example.ecommerce.dto.cart.UpdateCartItemRequest;
 
 import com.example.ecommerce.entity.*;
 
+import com.example.ecommerce.exception.InsufficientStockException;
 import com.example.ecommerce.exception.ResourceNotFoundException;
 
+import com.example.ecommerce.exception.UserNotFoundException;
 import com.example.ecommerce.repository.*;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -23,22 +28,24 @@ import java.util.UUID;
 @Transactional
 public class CartService {
 
-    private final CartRepository cartRepository;
-    private final CartItemRepository cartItemRepository;
-    private final UserRepository userRepository;
-    private final ProductRepository productRepository;
+    @Autowired
+    private CartRepository cartRepository;
+    @Autowired
+    private CartItemRepository cartItemRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private ProductRepository productRepository;
 
-    @Transactional(readOnly = true)
-    public CartResponse getCart(UUID userId) {
+    public CartResponse getCart(UUID userId) throws RuntimeException{
 
         Cart cart = getOrCreateCart(userId);
-
         return mapToResponse(cart);
     }
 
-    public CartResponse addItem(
+    public CartItemResponse addItem(
             UUID userId,
-            AddCartItemRequest request) {
+            AddCartItemRequest request) throws Exception{
 
         Cart cart = getOrCreateCart(userId);
 
@@ -51,7 +58,7 @@ public class CartService {
                         ));
 
         if (!product.isActive()) {
-            throw new IllegalArgumentException(
+            throw new ResourceNotFoundException(
                     "Product is not active"
             );
         }
@@ -59,7 +66,7 @@ public class CartService {
         if (product.getStockQuantity()
                 < request.quantity()) {
 
-            throw new IllegalArgumentException(
+            throw new InsufficientStockException(
                     "Insufficient stock"
             );
         }
@@ -89,7 +96,7 @@ public class CartService {
             if (newQuantity >
                     product.getStockQuantity()) {
 
-                throw new IllegalArgumentException(
+                throw new InsufficientStockException(
                         "Insufficient stock"
                 );
             }
@@ -99,10 +106,10 @@ public class CartService {
 
         cartItemRepository.save(item);
 
-        return mapToResponse(cart);
+        return mapToCartItemResponse(item);
     }
 
-    public CartResponse updateItem(
+    public CartItemResponse updateItem(
             UUID userId,
             UUID itemId,
             UpdateCartItemRequest request) {
@@ -125,21 +132,28 @@ public class CartService {
         if (request.quantity() >
                 product.getStockQuantity()) {
 
-            throw new IllegalArgumentException(
+            throw new InsufficientStockException(
                     "Insufficient stock"
             );
         }
 
         item.setQuantity(request.quantity());
 
-        return mapToResponse(cart);
+        return mapToCartItemResponse(item);
     }
 
     public CartResponse removeItem(
             UUID userId,
-            UUID itemId) {
+            UUID itemId) throws RuntimeException{
 
-        Cart cart = getOrCreateCart(userId);
+        Cart cart;
+        try {
+            cart = getOrCreateCart(userId);
+        }
+        catch(Exception e)
+        {
+            throw e;
+        }
 
         CartItem item =
                 cartItemRepository
@@ -152,22 +166,24 @@ public class CartService {
                                         "Cart item not found"
                                 ));
 
+        cart.getItems().remove(item);
         cartItemRepository.delete(item);
 
         return mapToResponse(cart);
     }
 
-    public void clearCart(UUID userId) {
+    public void clearCart(UUID userId) throws RuntimeException{
 
         Cart cart = getOrCreateCart(userId);
 
         cart.getItems().clear();
     }
 
-    private Cart getOrCreateCart(UUID userId) {
+    private Cart getOrCreateCart(UUID userId) throws RuntimeException {
 
         return cartRepository
                 .findByUserId(userId)
+//                .get()
                 .orElseGet(() -> {
 
                     User user =
@@ -177,12 +193,24 @@ public class CartService {
                                                     "User not found"
                                             ));
 
-                    Cart cart = Cart.builder()
+                    Cart cart1 = Cart.builder()
                             .user(user)
                             .build();
 
-                    return cartRepository.save(cart);
+                    return cartRepository.save(cart1);
                 });
+    }
+
+    private CartItemResponse mapToCartItemResponse(CartItem cartItem)
+    {
+        return new CartItemResponse(
+                cartItem.getId(),
+                cartItem.getCart().getId(),
+                cartItem.getProduct().getId(),
+                cartItem.getProduct().getName(),
+                cartItem.getProduct().getPrice()
+                        .multiply(BigDecimal.valueOf(cartItem.getQuantity())),
+                cartItem.getQuantity());
     }
 
     private CartResponse mapToResponse(Cart cart) {
@@ -192,6 +220,7 @@ public class CartService {
                 .map(item ->
                         new CartItemResponse(
                                 item.getId(),
+                                item.getCart().getId(),
                                 item.getProduct().getId(),
                                 item.getProduct().getName(),
                                 item.getProduct().getPrice(),
@@ -202,6 +231,7 @@ public class CartService {
 
         return new CartResponse(
                 cart.getId(),
+                cart.getUser().getId(),
                 items
         );
     }

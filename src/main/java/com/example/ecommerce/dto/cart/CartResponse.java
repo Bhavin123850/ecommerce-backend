@@ -7,6 +7,8 @@ public record CartResponse(
 
         UUID id,
 
+        UUID userID,
+
         List<CartItemResponse> items
 ) {
 }

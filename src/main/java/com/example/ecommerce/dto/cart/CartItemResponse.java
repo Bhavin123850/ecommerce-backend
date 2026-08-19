@@ -7,11 +7,13 @@ public record CartItemResponse(
 
         UUID id,
 
+        UUID cartId,
+
         UUID productId,
 
         String productName,
 
-        BigDecimal price,
+        BigDecimal totalAmount,
 
         Integer quantity
 ) {
