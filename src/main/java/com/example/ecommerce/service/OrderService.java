@@ -5,12 +5,15 @@ import com.example.ecommerce.dto.order.OrderResponse;
 
 import com.example.ecommerce.entity.*;
 
+import com.example.ecommerce.exception.InsufficientStockException;
+import com.example.ecommerce.exception.OrderCancellationException;
 import com.example.ecommerce.exception.ResourceNotFoundException;
 
 import com.example.ecommerce.repository.*;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -26,13 +29,21 @@ import java.util.UUID;
 @Transactional
 public class OrderService {
 
-    private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
-    private final CartRepository cartRepository;
-    private final AddressRepository addressRepository;
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private OrderItemRepository orderItemRepository;
+
+    @Autowired
+    private CartRepository cartRepository;
+
+    @Autowired
+    private AddressRepository addressRepository;
 
     public OrderResponse createOrder(
-            CreateOrderRequest request) {
+            CreateOrderRequest request) throws RuntimeException{
+
 
         Cart cart =
                 cartRepository.findByUserId(
@@ -43,7 +54,7 @@ public class OrderService {
                         ));
 
         if (cart.getItems().isEmpty()) {
-            throw new IllegalStateException(
+            throw new ResourceNotFoundException(
                     "Cannot create order from empty cart"
             );
         }
@@ -58,13 +69,18 @@ public class OrderService {
                                 new ResourceNotFoundException(
                                         "Address not found"
                                 ));
+        if(address == null)
+        {
+            throw new ResourceNotFoundException(
+                    "Address not found"
+            );
+        }
 
         Order order = Order.builder()
                 .user(cart.getUser())
                 .shippingAddress(address)
                 .orderDate(Instant.now())
                 .status(OrderStatus.PENDING)
-                .paymentStatus(PaymentStatus.PENDING)
                 .totalAmount(BigDecimal.ZERO)
                 .build();
 
@@ -77,7 +93,7 @@ public class OrderService {
             if (product.getStockQuantity()
                     < cartItem.getQuantity()) {
 
-                throw new IllegalStateException(
+                throw new InsufficientStockException(
                         "Insufficient stock for "
                                 + product.getName()
                 );
@@ -116,13 +132,12 @@ public class OrderService {
         Order savedOrder =
                 orderRepository.save(order);
 
-        cart.getItems().clear();
 
         return mapToResponse(savedOrder);
     }
 
     @Transactional(readOnly = true)
-    public OrderResponse getOrder(UUID id) {
+    public OrderResponse getOrder(UUID id) throws RuntimeException{
 
         return mapToResponse(
                 getOrderEntity(id)
@@ -139,33 +154,45 @@ public class OrderService {
                 .map(this::mapToResponse);
     }
 
-    public OrderResponse cancelOrder(UUID id) {
+    public OrderResponse cancelOrder(UUID id) throws RuntimeException{
 
         Order order = getOrderEntity(id);
 
-        if (order.getStatus() == OrderStatus.DELIVERED) {
-            throw new IllegalStateException(
-                    "Delivered order cannot be cancelled"
+        if ((order.getStatus() == OrderStatus.DELIVERED) || (order.getStatus() == OrderStatus.SHIPPED)) {
+            throw new OrderCancellationException(
+                    "Delivered or Shipped order cannot be cancelled"
             );
         }
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new IllegalStateException(
+            throw new OrderCancellationException(
                     "Order already cancelled"
             );
         }
-
+        for(OrderItem orderItem : order.getItems())
+        {
+            Product product = orderItem.getProduct();
+            product.setStockQuantity(product.getStockQuantity() + orderItem.getQuantity());
+        }
         order.setStatus(OrderStatus.CANCELLED);
+        User user = order.getUser();
 
+        Cart cart = cartRepository
+                .findByUserId(user.getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Cart not found"
+                        ));
+
+        cart.getItems().clear();
         return mapToResponse(order);
     }
 
     public OrderResponse updateOrderStatus(
             UUID id,
-            String status) {
+            String status) throws RuntimeException{
 
         Order order = getOrderEntity(id);
-
         try {
             order.setStatus(
                     OrderStatus.valueOf(
@@ -177,11 +204,23 @@ public class OrderService {
                     "Invalid order status"
             );
         }
+        if (status == "SHIPPED") {
 
+            User user = order.getUser();
+
+            Cart cart = cartRepository
+                    .findByUserId(user.getId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Cart not found"
+                            ));
+
+            cart.getItems().clear();
+        }
         return mapToResponse(order);
     }
 
-    private Order getOrderEntity(UUID id) {
+    private Order getOrderEntity(UUID id) throws RuntimeException{
 
         return orderRepository.findById(id)
                 .orElseThrow(() ->
@@ -197,7 +236,6 @@ public class OrderService {
                 order.getId(),
                 order.getUser().getId(),
                 order.getStatus(),
-                order.getPaymentStatus(),
                 order.getTotalAmount(),
                 order.getOrderDate()
         );

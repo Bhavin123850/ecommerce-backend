@@ -44,6 +44,7 @@ public class Order {
                     name = "fk_order_shipping_address"
             )
     )
+    
     private Address shippingAddress;
 
     @Column(name = "order_date", nullable = false)
@@ -54,10 +55,10 @@ public class Order {
     @Builder.Default
     private OrderStatus status = OrderStatus.PENDING;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payment_status", nullable = false, length = 50)
-    @Builder.Default
-    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+//    @Enumerated(EnumType.STRING)
+//    @Column(name = "payment_status", nullable = false, length = 50)
+//    @Builder.Default
+//    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;

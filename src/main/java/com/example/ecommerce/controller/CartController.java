@@ -126,9 +126,10 @@ public class CartController {
             @RequestParam UUID userId,
             @PathVariable UUID itemId) {
         try{
-        return ResponseEntity.ok(
-                cartService.removeItem(userId, itemId)
-        );}
+            return ResponseEntity.ok(
+                    cartService.removeItem(userId, itemId)
+            );
+        }
         catch(RuntimeException e)
         {
             return ResponseEntity

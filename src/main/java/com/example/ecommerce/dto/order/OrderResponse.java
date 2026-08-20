@@ -15,8 +15,6 @@ public record OrderResponse(
 
         OrderStatus status,
 
-        PaymentStatus paymentStatus,
-
         BigDecimal totalAmount,
 
         Instant orderDate
